@@ -1,0 +1,313 @@
+<%- include("partials/header.ejs") %>
+
+<div
+  class="container rounded shadow-sm p-3 mb-5 bg-secondary text-center"
+  style="color: pink"
+>
+  <h1 class="text-center" style="color: pink">Bed Availability</h1>
+  <div class="row">
+    <div class="col">
+      <div id="room-table-container"></div>
+      <script>
+        document.addEventListener("DOMContentLoaded", function () {
+          const roomTableContainer = document.getElementById(
+            "room-table-container"
+          );
+
+          function fetchData() {
+            return fetch(
+              "https://hospitalfastapi.vercel.app/emergency/bed-availability"
+            ).then((response) => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+              }
+              return response.json();
+            });
+          }
+
+          function renderTable(roomData) {
+            const tableContainer = document.createElement("div");
+            const tableHTML = `
+              <table class="table table-danger table-hover">
+                <thead>
+                  <tr>
+                    <th>Room</th>
+                    <th>Bed</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${roomData
+                    .map(
+                      (item) => `
+                    <tr>
+                      <td>${item.room}</td>
+                      <td>${item.bed}</td>
+                      <td>${item.status}</td>
+                      <td>${item.type}</td>
+                    </tr>
+                  `
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            `;
+
+            tableContainer.innerHTML = tableHTML;
+            roomTableContainer.appendChild(tableContainer);
+          }
+
+          function renderError(error) {
+            roomTableContainer.innerHTML = `<div>Error: ${error.message}</div>`;
+          }
+
+          function renderLoading() {
+            roomTableContainer.innerHTML = "<div>Loading...</div>";
+          }
+
+          renderLoading();
+
+          fetchData()
+            .then((data) => renderTable(data))
+            .catch((error) => renderError(error));
+        });
+      </script>
+    </div>
+  </div>
+</div>
+
+<div
+  class="container rounded shadow-sm p-3 mb-5 bg-secondary text-center"
+  style="color: pink"
+>
+  <h1 class="text-center" style="color: pink">Patient Queue</h1>
+  <div class="row">
+    <div class="col">
+      <h2>Patient Priority Distribution</h2>
+      <svg id="chart"></svg>
+      <script>
+        const width = 500;
+        const height = 300;
+        const margin = { top: 20, right: 30, bottom: 40, left: 40 };
+
+        async function fetchData() {
+          try {
+            const response = await fetch("/data.json");
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const jsonData = await response.json();
+            console.log("Fetched data:", jsonData); // Log the fetched data
+            return jsonData;
+          } catch (error) {
+            console.error("Error fetching data:", error);
+            document.body.innerHTML += `<div>Error: ${error.message}</div>`;
+            return null;
+          }
+        }
+
+        function renderChart(priorityData) {
+          if (!priorityData) return;
+
+          console.log("Rendering chart with data:", priorityData);
+
+          const svg = d3
+            .select("#chart")
+            .attr("width", width)
+            .attr("height", height);
+
+          const x = d3
+            .scaleBand()
+            .domain(priorityData.emergency.patientQueue.map((d) => d.priority))
+            .range([margin.left, width - margin.right])
+            .padding(0.1);
+
+          const y = d3
+            .scaleLinear()
+            .domain([
+              0,
+              d3.max(priorityData.emergency.patientQueue, (d) => d.count),
+            ])
+            .nice()
+            .range([height - margin.bottom, margin.top]);
+
+          svg.selectAll("*").remove();
+
+          svg
+            .append("g")
+            .selectAll("rect")
+            .data(priorityData.emergency.patientQueue)
+            .enter()
+            .append("rect")
+            .attr("x", (d) => x(d.priority))
+            .attr("y", (d) => y(d.count))
+            .attr("height", (d) => y(0) - y(d.count))
+            .attr("width", x.bandwidth())
+            .attr("fill", "pink");
+
+          svg
+            .append("g")
+            .attr("transform", `translate(0,${height - margin.bottom})`)
+            .call(d3.axisBottom(x));
+
+          svg
+            .append("g")
+            .attr("transform", `translate(${margin.left},0)`)
+            .call(d3.axisLeft(y));
+        }
+
+        async function init() {
+          const priorityData = await fetchData();
+          if (priorityData) {
+            renderChart(priorityData);
+          } else {
+            document.body.innerHTML += `<div>Loading...</div>`;
+          }
+        }
+
+        init();
+      </script>
+    </div>
+    <div class="col">
+      <div id="patient-queue-table-container"></div>
+
+      <script>
+        document.addEventListener("DOMContentLoaded", function () {
+          const patientQueueTableContainer = document.getElementById(
+            "patient-queue-table-container"
+          );
+
+          function fetchData() {
+            return fetch("/data.json").then((response) => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+              }
+              return response.json();
+            });
+          }
+
+          function renderTable(patientQueueData) {
+            const tableContainer = document.createElement("div");
+            const tableHTML = `
+              <table class="table table-danger table-hover">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Priority</th>
+                    <th>Arrival Time</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${patientQueueData.emergency.patientQueue
+                    .map(
+                      (patient) => `
+                    <tr>
+                      <td>${patient.name}</td>
+                      <td>${patient.priority}</td>
+                      <td>${patient.arrivalTime}</td>
+                      <td>${patient.status}</td>
+                    </tr>
+                  `
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            `;
+
+            tableContainer.innerHTML = tableHTML;
+            patientQueueTableContainer.appendChild(tableContainer);
+          }
+
+          function renderError(error) {
+            patientQueueTableContainer.innerHTML = `<div>Error: ${error.message}</div>`;
+          }
+
+          function renderLoading() {
+            patientQueueTableContainer.innerHTML = "<div>Loading...</div>";
+          }
+
+          renderLoading();
+
+          fetchData()
+            .then((data) => renderTable(data))
+            .catch((error) => renderError(error));
+        });
+      </script>
+    </div>
+  </div>
+</div>
+
+<div
+  class="container rounded shadow-sm p-3 mb-5 bg-secondary text-center"
+  style="color: pink"
+>
+  <h1 class="text-center" style="color: pink">Ambulance Tracking</h1>
+
+  <div class="col">
+    <style>
+      #map {
+        height: 500px;
+        width: 100%;
+      }
+    </style>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+      async function fetchData() {
+        try {
+          const response = await fetch("/data.json");
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+
+          const jsonData = await response.json();
+          console.log("Fetched data:", jsonData); // Log the fetched data
+          return jsonData;
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          document.body.innerHTML += `<div>Error: ${error.message}</div>`;
+          return null;
+        }
+      }
+
+      function initializeMap(ambulanceData) {
+        const map = L.map("map").setView([40.7128, -74.006], 6);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(map);
+
+        ambulanceData.emergency.ambulanceTracking.forEach((ambulance) => {
+          L.marker([ambulance.latitude, ambulance.longitude], {
+            icon: L.icon({
+              iconUrl: "/ambulance-icon.png", // Add your ambulance icon path
+              iconSize: [32, 32],
+            }),
+          })
+            .addTo(map)
+            .bindPopup(
+              `Ambulance ID: ${ambulance.id}<br>Status: ${ambulance.status}`
+            );
+        });
+      }
+
+      async function init() {
+        const ambulanceData = await fetchData();
+        if (ambulanceData) {
+          initializeMap(ambulanceData);
+        } else {
+          document.body.innerHTML += `<div>Loading...</div>`;
+        }
+      }
+
+      init();
+    </script>
+  </div>
+</div>

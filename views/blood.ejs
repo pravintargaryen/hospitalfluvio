@@ -1,0 +1,400 @@
+<%- include("partials/header.ejs") %>
+<div class="container rounded shadow-sm p-3 mb-5 bg-secondary text-center">
+  <h1 class="text-center" style="color: pink">Blood Inventory</h1>
+  <div>
+    <svg id="pieChart"></svg>
+    <div id="tooltip"></div>
+  </div>
+  <style>
+    #tooltip {
+      position: absolute;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 5px;
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+    }
+  </style>
+  <script>
+    const width = 400;
+    const height = 400;
+    const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+    const radius = Math.min(width, height) / 2 - margin.top;
+
+    async function fetchData() {
+      try {
+        const response = await fetch("/data.json");
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const jsonData = await response.json();
+        console.log("Fetched data:", jsonData); // Log the fetched data
+        return jsonData;
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        document.body.innerHTML += `<div>Error: ${error.message}</div>`;
+        return null;
+      }
+    }
+
+    function createPieChart(data) {
+      const svg = d3
+        .select("#pieChart")
+        .attr("width", width)
+        .attr("height", height)
+        .append("g")
+        .attr("transform", `translate(${width / 2},${height / 2})`);
+
+      const pie = d3.pie().value((d) => d.quantity);
+      const arc = d3.arc().outerRadius(radius).innerRadius(0);
+
+      const color = d3
+        .scaleOrdinal()
+        .domain(data.bloodBank.bloodInventory.map((d) => d.type))
+        .range(d3.schemeSet2);
+
+      const pieData = pie(data.bloodBank.bloodInventory);
+
+      svg.selectAll("*").remove();
+
+      svg
+        .selectAll("path")
+        .data(pieData)
+        .enter()
+        .append("path")
+        .attr("d", arc)
+        .attr("fill", (d) => color(d.data.type))
+        .attr("stroke", "#fff")
+        .attr("stroke-width", "2px")
+        .on("mouseover", (event, d) => {
+          const tooltip = d3.select("#tooltip");
+          tooltip
+            .style("opacity", 1)
+            .html(`${d.data.type}<br/>Quantity: ${d.data.quantity}`)
+            .style("left", `${event.pageX + 5}px`)
+            .style("top", `${event.pageY - 28}px`);
+        })
+        .on("mouseout", () => {
+          d3.select("#tooltip").style("opacity", 0);
+        });
+
+      svg
+        .append("text")
+        .attr("text-anchor", "middle")
+        .attr("font-size", "16px")
+        .attr("y", 10);
+    }
+
+    async function init() {
+      const inventoryData = await fetchData();
+      if (inventoryData) {
+        createPieChart(inventoryData);
+      } else {
+        document.body.innerHTML += `<div>Loading...</div>`;
+      }
+    }
+
+    init();
+  </script>
+</div>
+
+<div class="container rounded shadow-sm p-3 mb-5 bg-secondary text-center">
+  <h1 class="text-center" style="color: pink">Donors</h1>
+  <svg id="donorsBarChart"></svg>
+  <div id="tooltip"></div>
+  <style>
+    svg {
+      margin-top: 20px;
+    }
+  </style>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const width = 800;
+      const height = 400;
+      const margin = { top: 20, right: 30, bottom: 40, left: 40 };
+
+      const svg = d3
+        .select("#donorsBarChart")
+        .attr("width", width)
+        .attr("height", height);
+
+      const tooltip = d3.select("#tooltip");
+
+      fetch("/data.json")
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          const donorData = data.bloodBank.donors;
+
+          const x = d3
+            .scaleBand()
+            .domain(donorData.map((d) => d.bloodType))
+            .range([margin.left, width - margin.right])
+            .padding(0.1);
+
+          const y = d3
+            .scaleLinear()
+            .domain([0, d3.max(donorData, (d) => d.count)])
+            .nice()
+            .range([height - margin.bottom, margin.top]);
+
+          svg.selectAll("*").remove();
+
+          svg
+            .selectAll("rect")
+            .data(donorData)
+            .enter()
+            .append("rect")
+            .attr("x", (d) => x(d.bloodType))
+            .attr("y", (d) => y(d.count))
+            .attr("width", x.bandwidth())
+            .attr("height", (d) => y(0) - y(d.count))
+            .attr("fill", "pink")
+            .on("mouseover", (event, d) => {
+              tooltip
+                .style("opacity", 1)
+                .html(`${d.bloodType}<br/>Donors: ${d.count}`)
+                .style("left", `${event.pageX + 5}px`)
+                .style("top", `${event.pageY - 28}px`);
+            })
+            .on("mouseout", () => {
+              tooltip.style("opacity", 0);
+            });
+
+          svg
+            .append("g")
+            .attr("transform", `translate(0,${height - margin.bottom})`)
+            .call(d3.axisBottom(x));
+
+          svg
+            .append("g")
+            .attr("transform", `translate(${margin.left},0)`)
+            .call(d3.axisLeft(y));
+        })
+        .catch((error) => {
+          console.error("Error fetching data:", error);
+          document.body.innerHTML = `<div>Error: ${error.message}</div>`;
+        });
+    });
+  </script>
+</div>
+
+<div class="container rounded shadow-sm p-3 mb-5 bg-secondary text-center">
+  <h1 class="text-center" style="color: pink">Requests</h1>
+  <svg id="requests-chart"></svg>
+  <div id="tooltip"></div>
+  <style>
+    #requests-chart-container {
+      position: relative;
+      width: 800px;
+      height: 400px;
+    }
+  </style>
+  <script>
+    const width1 = 800;
+    const height1 = 400;
+    const margin1 = { top: 20, right: 20, bottom: 30, left: 50 };
+
+    const fetchRequestData = async () => {
+      try {
+        const response = await fetch("/data.json");
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const requestData = await response.json();
+        console.log("Fetched data:", requestData);
+
+        const svg = d3
+          .select("#requests-chart")
+          .attr("width", width1)
+          .attr("height", height1);
+
+        const x = d3
+          .scaleTime()
+          .domain(
+            d3.extent(requestData.bloodBank.requests, (d) => new Date(d.date))
+          )
+          .range([margin.left, width1 - margin.right]);
+
+        const y = d3
+          .scaleLinear()
+          .domain([
+            0,
+            d3.max(requestData.bloodBank.requests, (d) => d.requests),
+          ])
+          .nice()
+          .range([height1 - margin.bottom, margin.top]);
+
+        const line = d3
+          .line()
+          .x((d) => x(new Date(d.date)))
+          .y((d) => y(d.requests))
+          .curve(d3.curveMonotoneX);
+
+        svg.selectAll("*").remove();
+
+        svg
+          .append("path")
+          .data([requestData.bloodBank.requests])
+          .attr("d", line)
+          .attr("fill", "none")
+          .attr("stroke", "pink")
+          .attr("stroke-width", "2px");
+
+        svg
+          .selectAll("circle")
+          .data(requestData.bloodBank.requests)
+          .enter()
+          .append("circle")
+          .attr("cx", (d) => x(new Date(d.date)))
+          .attr("cy", (d) => y(d.requests))
+          .attr("r", 5)
+          .attr("fill", "pink")
+          .on("mouseover", (event, d) => {
+            const tooltip = d3.select("#tooltip");
+            tooltip
+              .style("opacity", 1)
+              .html(`${d.date}<br/>Requests: ${d.requests}`)
+              .style("left", `${event.pageX + 5}px`)
+              .style("top", `${event.pageY - 28}px`);
+          })
+          .on("mouseout", () => {
+            d3.select("#tooltip").style("opacity", 0);
+          });
+
+        svg
+          .append("g")
+          .attr("transform", `translate(0,${height - margin.bottom})`)
+          .call(d3.axisBottom(x).ticks(d3.timeMonth.every(1)));
+
+        svg
+          .append("g")
+          .attr("transform", `translate(${margin.left},0)`)
+          .call(d3.axisLeft(y));
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        document.getElementById(
+          "requests-chart-container"
+        ).innerHTML = `Error: ${error.message}`;
+      }
+    };
+
+    fetchRequestData();
+  </script>
+</div>
+
+<div class="container rounded shadow-sm p-3 mb-5 bg-secondary text-center">
+  <h1 class="text-center" style="color: pink">Donor Trends</h1>
+  <svg id="donorTrendsLineChart"></svg>
+  <div id="tooltip"></div>
+  <style>
+    #tooltip {
+      position: absolute;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 5px;
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
+    }
+  </style>
+  <script>
+    const width2 = 800;
+    const height2 = 400;
+    const margin2 = { top: 20, right: 20, bottom: 30, left: 50 };
+
+    document.addEventListener("DOMContentLoaded", function () {
+      const svg = d3
+        .select("#donorTrendsLineChart")
+        .attr("width", width2)
+        .attr("height", height2);
+
+      fetch("/data.json")
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log("Fetched data:", data);
+
+          const donorTrendData = data.bloodBank.donorTrends;
+
+          const x = d3
+            .scaleTime()
+            .domain(d3.extent(donorTrendData, (d) => new Date(d.month)))
+            .range([margin.left, width2 - margin.right]);
+
+          const y = d3
+            .scaleLinear()
+            .domain([0, d3.max(donorTrendData, (d) => d.donors)])
+            .nice()
+            .range([height2 - margin.bottom, margin.top]);
+
+          const line = d3
+            .line()
+            .x((d) => x(new Date(d.month)))
+            .y((d) => y(d.donors))
+            .curve(d3.curveMonotoneX);
+
+          svg.selectAll("*").remove();
+
+          svg
+            .append("path")
+            .datum(donorTrendData)
+            .attr("d", line)
+            .attr("fill", "none")
+            .attr("stroke", "pink")
+            .attr("stroke-width", "2px");
+
+          svg
+            .selectAll("circle")
+            .data(donorTrendData)
+            .enter()
+            .append("circle")
+            .attr("cx", (d) => x(new Date(d.month)))
+            .attr("cy", (d) => y(d.donors))
+            .attr("r", 6)
+            .attr("fill", "pink")
+            .on("mouseover", (event, d) => {
+              const tooltip = d3.select("#tooltip");
+              tooltip
+                .style("opacity", 1)
+                .html(`Month: ${d.month}<br/>Donors: ${d.donors}`)
+                .style("left", `${event.pageX + 5}px`)
+                .style("top", `${event.pageY - 28}px`);
+            })
+            .on("mouseout", () => {
+              d3.select("#tooltip").style("opacity", 0);
+            });
+
+          svg
+            .append("g")
+            .attr("transform", `translate(0,${height - margin.bottom})`)
+            .call(d3.axisBottom(x).ticks(d3.timeMonth.every(1)));
+
+          svg
+            .append("g")
+            .attr("transform", `translate(${margin.left},0)`)
+            .call(d3.axisLeft(y));
+        })
+        .catch((error) => {
+          console.error("Error fetching data:", error);
+          document.getElementById(
+            "chart-container"
+          ).innerHTML = `<div>Error: ${error.message}</div>`;
+        });
+    });
+  </script>
+</div>

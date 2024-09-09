@@ -1,0 +1,67 @@
+# Node.js dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Output directories
+dist/
+build/
+
+# Dependency directories
+jspm_packages/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor specific files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Ignore coverage reports
+coverage/
+nyc_output/
+
+# Ignore compiled JavaScript files
+*.js
+*.jsx
+*.js.map
+*.jsx.map
+
+# Ignore compiled TypeScript declaration files
+*.d.ts
+*.d.ts.map
+
+# Ignore Yarn files
+.yarn/*
+!.yarn/cache
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+
+# Ignore Storybook build
+.out/
+storybook-static/
